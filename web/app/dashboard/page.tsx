@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import MetricCard from '@/components/dashboard/MetricCard'
 import PostRanking from '@/components/dashboard/PostRanking'
 import SentimentPanel from '@/components/dashboard/SentimentPanel'
@@ -21,6 +22,7 @@ interface Sentiment {
 }
 
 export default function DashboardPage() {
+  const router = useRouter()
   const [sentiment, setSentiment] = useState<Sentiment>({ positive: 72, neutral: 20, negative: 8, keywords: [] })
   const [sentimentLoading, setSentimentLoading] = useState(true)
   const [sentimentError, setSentimentError] = useState(false)
@@ -41,11 +43,27 @@ export default function DashboardPage() {
       <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="text-2xl font-bold text-white">Omini Dashboard</h1>
-            <p className="text-gray-400 text-sm mt-1">出海决策面板 · 实时更新</p>
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => router.push('/workspace')}
+              className="text-gray-400 hover:text-white transition-colors"
+            >
+              ← 返回工作台
+            </button>
+            <div>
+              <h1 className="text-2xl font-bold text-white">Omini Dashboard</h1>
+              <p className="text-gray-400 text-sm mt-1">出海决策面板 · 实时更新</p>
+            </div>
           </div>
-          <div className="text-xs text-gray-600">{new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</div>
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => router.push('/deploy')}
+              className="px-4 py-2 bg-[#00d4ff] text-black rounded-lg font-medium hover:bg-[#00b8e6] transition-colors text-sm"
+            >
+              部署独立站
+            </button>
+            <div className="text-xs text-gray-600">{new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</div>
+          </div>
         </div>
 
         {/* Health Score */}

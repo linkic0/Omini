@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 
 interface CopyResult {
   slogan: string
@@ -36,6 +37,7 @@ const deploySteps = [
 ]
 
 export function Step3Deploy({ config, onChange, onDeploy, onBack, brandName, copy, template, brandColor }: Step3Props) {
+  const router = useRouter()
   const [deploying, setDeploying] = useState(false)
   const [currentStep, setCurrentStep] = useState(-1)
   const [done, setDone] = useState(false)
@@ -93,7 +95,7 @@ export function Step3Deploy({ config, onChange, onDeploy, onBack, brandName, cop
             {displayUrl}
           </a>
         </div>
-        <div className="grid grid-cols-3 gap-3 text-sm">
+        <div className="grid grid-cols-3 gap-3 text-sm mb-8">
           <div className="bg-[#242424] rounded-xl p-4 border border-[#2a2a2a]">
             <div className="text-2xl mb-1">🎨</div>
             <div className="font-medium text-white">主题已配置</div>
@@ -109,6 +111,20 @@ export function Step3Deploy({ config, onChange, onDeploy, onBack, brandName, cop
             <div className="font-medium text-white">产品已同步</div>
             <div className="text-gray-500 text-xs mt-1">目录配置完成</div>
           </div>
+        </div>
+        <div className="flex gap-3 justify-center">
+          <button
+            onClick={() => router.push('/dashboard')}
+            className="px-6 py-3 bg-[#00d4ff] text-black rounded-xl font-semibold hover:bg-[#00b8e6] transition-colors"
+          >
+            📊 查看数据面板
+          </button>
+          <button
+            onClick={() => router.push('/workspace')}
+            className="px-6 py-3 border border-[#2a2a2a] text-gray-400 rounded-xl hover:bg-[#2a2a2a] transition-colors"
+          >
+            返回工作台
+          </button>
         </div>
       </div>
     )

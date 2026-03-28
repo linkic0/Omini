@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Step1Template } from '@/components/deploy/Step1Template'
 import { Step2BrandInfo } from '@/components/deploy/Step2BrandInfo'
 import { Step3Deploy } from '@/components/deploy/Step3Deploy'
@@ -23,6 +24,7 @@ interface DeployWizardProps {
 }
 
 export function DeployWizard({ initialBrandName, initialCategory, initialColor }: DeployWizardProps) {
+  const router = useRouter()
   const [step, setStep] = useState(0)
   const [template, setTemplate] = useState('')
   const [brandInfo, setBrandInfo] = useState({
@@ -42,9 +44,17 @@ export function DeployWizard({ initialBrandName, initialCategory, initialColor }
       {/* Header */}
       <header className="bg-[#1a1a1a] border-b border-[#2a2a2a] px-6 py-4">
         <div className="max-w-4xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="text-2xl">🚀</span>
-            <span className="font-bold text-white text-lg">Omini Store Deploy</span>
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => router.push('/workspace')}
+              className="text-gray-400 hover:text-white transition-colors text-sm"
+            >
+              ← 返回工作台
+            </button>
+            <div className="flex items-center gap-2">
+              <span className="text-2xl">🚀</span>
+              <span className="font-bold text-white text-lg">Omini Store Deploy</span>
+            </div>
           </div>
           <div className="text-sm text-gray-400">一键部署你的出海独立站</div>
         </div>
