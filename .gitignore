@@ -1,7 +1,21 @@
+# macOS
+.DS_Store
+
+# Next.js
 node_modules/
 .next/
+web/.next/
+web/node_modules/
+dashboard/node_modules/
+store-deploy/node_modules/
+
+# Env
 .env
 .env.local
+
+# Artifacts
 *.png
+chat-page.png
+extracted/
+*.zip
 .playwright-mcp/
-.DS_Store
