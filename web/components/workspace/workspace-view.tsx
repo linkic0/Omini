@@ -8,10 +8,13 @@ import {
   BarChart2,
   Check,
   Copy,
+  Download,
   ExternalLink,
   Lightbulb,
   Minus,
+  RotateCcw,
   Rocket,
+  Sparkles,
   Store,
   TrendingUp,
 } from "lucide-react";
@@ -36,6 +39,35 @@ import type { WorkspaceData } from "./types";
 type WorkspaceViewProps = {
   session: WorkspaceData;
   fallback?: WorkspaceData;
+};
+
+type ImageTypeId = "lifestyle" | "whitebg" | "banner";
+
+const IMAGE_TYPES: Array<{ id: ImageTypeId; label: string; hint: string }> = [
+  { id: "lifestyle", label: "生活场景图", hint: "社媒种草" },
+  { id: "whitebg", label: "白底图", hint: "电商上架" },
+  { id: "banner", label: "活动营销Banner", hint: "促销推广" },
+];
+
+const MOCK_IMAGES: Record<
+  ImageTypeId,
+  Array<{ bg: string; emoji: string; scene?: string; tagline?: string; cta?: string }>
+> = {
+  lifestyle: [
+    { bg: "linear-gradient(135deg,#6b21a8 0%,#db2777 100%)", emoji: "✨", scene: "晨间护理仪式" },
+    { bg: "linear-gradient(135deg,#92400e 0%,#f59e0b 100%)", emoji: "💛", scene: "轻松日常佩戴" },
+    { bg: "linear-gradient(135deg,#0e7490 0%,#0891b2 100%)", emoji: "🌊", scene: "户外时尚搭配" },
+  ],
+  whitebg: [
+    { bg: "linear-gradient(135deg,#f8fafc 0%,#e2e8f0 100%)", emoji: "💎" },
+    { bg: "linear-gradient(135deg,#fff 0%,#f0fdf4 100%)", emoji: "✨" },
+    { bg: "linear-gradient(135deg,#fafafa 0%,#fef9c3 100%)", emoji: "🪩" },
+  ],
+  banner: [
+    { bg: "linear-gradient(90deg,#0a0a0a 0%,#003d4d 60%,#00d4ff18 100%)", emoji: "✨", tagline: "探索能量·感受疗愈", cta: "立即选购" },
+    { bg: "linear-gradient(90deg,#0a0a0a 0%,#1a0a2e 60%,#7c3aed30 100%)", emoji: "💜", tagline: "Z世代都在用", cta: "查看详情" },
+    { bg: "linear-gradient(90deg,#0a0a0a 0%,#2d0a0a 60%,#dc262630 100%)", emoji: "🔥", tagline: "限时优惠·抢先体验", cta: "马上抢购" },
+  ],
 };
 
 function CountUp({
@@ -98,6 +130,12 @@ export function WorkspaceView({ session, fallback }: WorkspaceViewProps) {
   const [checklist, setChecklist] = useState(selected.workspace.checklist);
   const [selectedPost, setSelectedPost] = useState(0);
   const [seoTitle, setSeoTitle] = useState(selected.workspace.seo.title);
+  const [activeImageType, setActiveImageType] = useState<ImageTypeId>("lifestyle");
+  const [imageGenStates, setImageGenStates] = useState<Record<ImageTypeId, "idle" | "generating" | "done">>({
+    lifestyle: "idle",
+    whitebg: "idle",
+    banner: "idle",
+  });
 
   const completedCount = checklist.filter((item) => item.completed).length;
   const progressPercentage = (completedCount / checklist.length) * 100;
@@ -115,6 +153,13 @@ export function WorkspaceView({ session, fallback }: WorkspaceViewProps) {
   const copyToClipboard = async (value: string) => {
     await navigator.clipboard.writeText(value);
     toast.success("已复制到剪贴板");
+  };
+
+  const handleGenerateImages = (type: ImageTypeId) => {
+    setImageGenStates((prev) => ({ ...prev, [type]: "generating" }));
+    window.setTimeout(() => {
+      setImageGenStates((prev) => ({ ...prev, [type]: "done" }));
+    }, 2200);
   };
 
   return (
@@ -502,6 +547,132 @@ export function WorkspaceView({ session, fallback }: WorkspaceViewProps) {
                   </button>
                 ))}
               </div>
+            </section>
+
+            {/* ── Image Asset Generation ─────────────────────────── */}
+            <section className={`${panelClass} p-6`}>
+              <div className="mb-5 flex items-center justify-between">
+                <h3 className="text-[16px] font-semibold">图片物料生成</h3>
+                <span className="rounded-full bg-[#00d4ff]/10 px-3 py-1 text-xs text-[#00d4ff]">
+                  AI 生成
+                </span>
+              </div>
+
+              <div className="mb-6 flex flex-wrap gap-2">
+                {IMAGE_TYPES.map((t) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => setActiveImageType(t.id)}
+                    className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+                      activeImageType === t.id
+                        ? "bg-[#00d4ff]/20 text-[#00d4ff]"
+                        : "bg-[#2a2a2a] text-gray-400 hover:bg-[#333] hover:text-white"
+                    }`}
+                  >
+                    {t.label}
+                    <span className="ml-2 text-xs opacity-60">{t.hint}</span>
+                  </button>
+                ))}
+              </div>
+
+              {imageGenStates[activeImageType] === "idle" ? (
+                <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-gray-700 py-12">
+                  <Sparkles className="mb-3 h-8 w-8 text-gray-600" />
+                  <p className="mb-1 text-sm text-gray-400">
+                    基于商品&nbsp;<span className="text-white">{selected.idea}</span>&nbsp;自动生成
+                  </p>
+                  <p className="mb-6 text-xs text-gray-600">
+                    {activeImageType === "lifestyle" && "真实使用场景 · 生活风格化 · 社媒种草"}
+                    {activeImageType === "whitebg" && "纯白背景 · 细节清晰 · 符合电商平台规范"}
+                    {activeImageType === "banner" && "品牌色调 · 卖点突出 · 可直接投放"}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => handleGenerateImages(activeImageType)}
+                    className="inline-flex items-center gap-2 rounded-lg bg-[#00d4ff] px-6 py-2.5 text-sm font-semibold text-black transition-colors hover:bg-[#00b8e6]"
+                  >
+                    <Sparkles className="h-4 w-4" />
+                    AI 生成图片
+                  </button>
+                </div>
+              ) : imageGenStates[activeImageType] === "generating" ? (
+                <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-[#00d4ff]/30 py-12">
+                  <motion.div
+                    animate={{ rotate: 360 }}
+                    transition={{ duration: 1.2, repeat: Infinity, ease: "linear" }}
+                    className="mb-3"
+                  >
+                    <Sparkles className="h-8 w-8 text-[#00d4ff]" />
+                  </motion.div>
+                  <p className="text-sm text-[#00d4ff]">AI 正在生成图片…</p>
+                  <p className="mt-1 text-xs text-gray-600">根据你的商品创意定制</p>
+                </div>
+              ) : (
+                <div>
+                  <div
+                    className={`grid gap-4 ${
+                      activeImageType === "banner" ? "grid-cols-1" : "grid-cols-3"
+                    }`}
+                  >
+                    {MOCK_IMAGES[activeImageType].map((img, i) => (
+                      <div key={i} className="group relative overflow-hidden rounded-xl">
+                        <div
+                          className={`flex w-full items-center justify-center ${
+                            activeImageType === "banner" ? "aspect-[4/1]" : "aspect-square"
+                          }`}
+                          style={{ background: img.bg }}
+                        >
+                          {activeImageType === "whitebg" ? (
+                            <div className="flex flex-col items-center gap-2">
+                              <span className="text-7xl">{img.emoji}</span>
+                              <span className="text-xs font-medium text-gray-500">
+                                {selected.idea.slice(0, 10)}
+                              </span>
+                            </div>
+                          ) : activeImageType === "banner" ? (
+                            <div className="flex w-full items-center justify-between px-12">
+                              <div>
+                                <div className="text-xl font-bold text-white">
+                                  {selected.idea.slice(0, 16)}
+                                </div>
+                                <div className="mt-1 text-sm text-white/70">{img.tagline}</div>
+                              </div>
+                              <div className="flex flex-col items-center gap-2">
+                                <span className="text-5xl">{img.emoji}</span>
+                                <span className="rounded-full bg-white/20 px-4 py-1 text-xs font-semibold text-white">
+                                  {img.cta}
+                                </span>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="flex flex-col items-center gap-2">
+                              <span className="text-6xl">{img.emoji}</span>
+                              <span className="text-xs text-white/60">{img.scene}</span>
+                            </div>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => toast.success("图片已保存到本地")}
+                          className="absolute right-2 top-2 flex items-center gap-1 rounded-lg bg-black/50 px-2 py-1 text-xs text-white opacity-0 backdrop-blur-sm transition-opacity group-hover:opacity-100"
+                        >
+                          <Download className="h-3 w-3" />
+                          下载
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleGenerateImages(activeImageType)}
+                    className="mt-4 flex items-center gap-2 text-xs text-gray-500 transition-colors hover:text-[#00d4ff]"
+                  >
+                    <RotateCcw className="h-3 w-3" />
+                    重新生成
+                  </button>
+                </div>
+              )}
             </section>
           </div>
         ) : null}

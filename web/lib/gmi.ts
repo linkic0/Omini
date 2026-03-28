@@ -1,3 +1,6 @@
+import { createOpenAI } from "@ai-sdk/openai";
+import { generateText } from "ai";
+
 import {
   createChatFallback,
   createLandingFallback,
@@ -15,7 +18,8 @@ import type {
   WorkspaceData,
 } from "@/lib/types";
 
-const GMI_BASE_URL = process.env.GMI_BASE_URL ?? "https://api.gmi-serving.com/v1";
+const GMI_BASE_URL =
+  process.env.GMI_BASE_URL ?? "https://api.gmi-serving.com/v1";
 const GMI_DEFAULT_MODEL =
   process.env.GMI_DEFAULT_MODEL ?? "deepseek-ai/DeepSeek-V3.2";
 
@@ -23,62 +27,36 @@ function createApiError(code: string, message: string): ApiError {
   return { code, message };
 }
 
+function getGmiProvider() {
+  const apiKey = process.env.GMI_API_KEY;
+  if (!apiKey) throw createApiError("missing_api_key", "GMI_API_KEY 未配置");
+  return createOpenAI({ baseURL: GMI_BASE_URL, apiKey });
+}
+
 async function callGmiJSON<T>(args: {
   system: string;
   user: string;
-  model?: string;
   temperature?: number;
 }) {
-  const apiKey = process.env.GMI_API_KEY;
-
-  if (!apiKey) {
-    throw createApiError("missing_api_key", "GMI_API_KEY 未配置");
-  }
-
+  const provider = getGmiProvider();
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 12000);
 
   try {
-    const response = await fetch(`${GMI_BASE_URL}/chat/completions`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: args.model ?? GMI_DEFAULT_MODEL,
-        temperature: args.temperature ?? 0.6,
-        max_tokens: 4096,
-        response_format: { type: "json_object" },
-        messages: [
-          { role: "system", content: args.system },
-          { role: "user", content: args.user },
-        ],
-      }),
-      signal: controller.signal,
+    const { text } = await generateText({
+      model: provider(GMI_DEFAULT_MODEL),
+      temperature: args.temperature ?? 0.6,
+      maxOutputTokens: 4096,
+      system: args.system,
+      prompt: args.user,
+      abortSignal: controller.signal,
     });
 
-    if (!response.ok) {
-      const text = await response.text();
-      throw createApiError(
-        "upstream_error",
-        `GMI 请求失败（${response.status}）：${text.slice(0, 180)}`,
-      );
-    }
-
-    const json = await response.json();
-    const content = json.choices?.[0]?.message?.content;
-
-    if (!content) {
-      throw createApiError("invalid_response", "GMI 没有返回可解析内容");
-    }
-
-    return JSON.parse(content) as T;
+    return JSON.parse(text) as T;
   } catch (error) {
     if (error instanceof Error && error.name === "AbortError") {
       throw createApiError("timeout", "GMI 请求超时");
     }
-
     throw error;
   } finally {
     clearTimeout(timeout);
@@ -94,13 +72,13 @@ function errorFromUnknown(error: unknown): ApiError {
   ) {
     return error as ApiError;
   }
-
   if (error instanceof Error) {
     return createApiError("unknown_error", error.message);
   }
-
   return createApiError("unknown_error", "未知错误");
 }
+
+// ─── Pipeline functions ────────────────────────────────────────────────────
 
 export async function generateChat(input: {
   idea: string;
@@ -113,11 +91,7 @@ export async function generateChat(input: {
     const data = await callGmiJSON<Partial<ChatResponse>>({
       system:
         "You are a launch strategist for an idea-to-deploy product. Respond with JSON only. Keep the stage intact and provide short, product-focused option copy.",
-      user: JSON.stringify({
-        task: "generate_chat_step",
-        fallback,
-        input,
-      }),
+      user: JSON.stringify({ task: "generate_chat_step", fallback, input }),
     });
 
     return {
@@ -130,11 +104,7 @@ export async function generateChat(input: {
       },
     };
   } catch (error) {
-    return {
-      source: "fallback",
-      data: fallback,
-      error: errorFromUnknown(error),
-    };
+    return { source: "fallback", data: fallback, error: errorFromUnknown(error) };
   }
 }
 
@@ -170,17 +140,14 @@ export async function generatePositioning(input: {
       },
     };
   } catch (error) {
-    return {
-      source: "fallback",
-      data: fallback,
-      error: errorFromUnknown(error),
-    };
+    return { source: "fallback", data: fallback, error: errorFromUnknown(error) };
   }
 }
 
 export async function generateWorkspace(input: {
   idea: string;
   market: MarketId;
+  positioning?: PositioningCard;
 }): Promise<ApiEnvelope<WorkspaceData>> {
   const fallback = createWorkspaceFallback(input);
 
@@ -188,11 +155,7 @@ export async function generateWorkspace(input: {
     const data = await callGmiJSON<Partial<WorkspaceData>>({
       system:
         "You are a launch operator. Return JSON only. Generate a compact GTM workspace object for a demo dashboard.",
-      user: JSON.stringify({
-        task: "generate_workspace",
-        fallback,
-        input,
-      }),
+      user: JSON.stringify({ task: "generate_workspace", fallback, input }),
     });
 
     return {
@@ -221,17 +184,14 @@ export async function generateWorkspace(input: {
       },
     };
   } catch (error) {
-    return {
-      source: "fallback",
-      data: fallback,
-      error: errorFromUnknown(error),
-    };
+    return { source: "fallback", data: fallback, error: errorFromUnknown(error) };
   }
 }
 
 export async function generateLanding(input: {
   idea: string;
   market: MarketId;
+  positioning?: PositioningCard;
 }): Promise<ApiEnvelope<LandingData>> {
   const fallback = createLandingFallback(input);
 
@@ -239,11 +199,7 @@ export async function generateLanding(input: {
     const data = await callGmiJSON<Partial<LandingData>>({
       system:
         "You are a creative director generating a consumer-facing landing page data model. Return JSON only and keep the structure compact.",
-      user: JSON.stringify({
-        task: "generate_landing_page",
-        fallback,
-        input,
-      }),
+      user: JSON.stringify({ task: "generate_landing_page", fallback, input }),
     });
 
     return {
@@ -259,10 +215,112 @@ export async function generateLanding(input: {
       },
     };
   } catch (error) {
+    return { source: "fallback", data: fallback, error: errorFromUnknown(error) };
+  }
+}
+
+// ─── New functions (replaces @anthropic-ai/sdk) ───────────────────────────
+
+export type SentimentResult = {
+  positive: number;
+  neutral: number;
+  negative: number;
+  keywords: string[];
+  comments: string[];
+};
+
+export async function generateSentiment(
+  idea: string,
+  market: MarketId,
+): Promise<SentimentResult> {
+  const fallback: SentimentResult = {
+    positive: 72,
+    neutral: 20,
+    negative: 8,
+    keywords: ["quality", "shipping", "value", "design", "service"],
+    comments: [
+      "Love this product! Amazing quality",
+      "Fast shipping, very happy with my purchase",
+      "Great value for money, will buy again",
+      "Beautiful design, exactly as described",
+      "Excellent customer service",
+      "The color is slightly different from photos",
+      "Will definitely recommend to friends",
+      "Package was damaged on arrival",
+      "Shipping took too long but product is good",
+      "Not what I expected, quality is poor",
+    ],
+  };
+
+  try {
+    const result = await callGmiJSON<SentimentResult>({
+      system:
+        "You are a product analyst. Return JSON only with fields: positive (integer percentage), neutral (integer percentage), negative (integer percentage, all three sum to 100), keywords (string[], max 5 high-frequency keywords), comments (string[], exactly 10 realistic customer reviews in English relevant to the product).",
+      user: JSON.stringify({
+        task: "generate_sentiment_analysis",
+        product: idea,
+        market,
+      }),
+    });
+
     return {
-      source: "fallback",
-      data: fallback,
-      error: errorFromUnknown(error),
+      positive: result.positive ?? fallback.positive,
+      neutral: result.neutral ?? fallback.neutral,
+      negative: result.negative ?? fallback.negative,
+      keywords: result.keywords?.length ? result.keywords : fallback.keywords,
+      comments: result.comments?.length ? result.comments : fallback.comments,
     };
+  } catch {
+    return fallback;
+  }
+}
+
+export type BrandCopyResult = {
+  slogan: string;
+  aboutUs: string;
+  bannerTitle: string;
+  bannerSubtitle: string;
+  seoTitle: string;
+  seoDescription: string;
+};
+
+export async function generateCopy(input: {
+  brandName: string;
+  category: string;
+  color: string;
+  story?: string;
+}): Promise<BrandCopyResult> {
+  const fallback: BrandCopyResult = {
+    slogan: `${input.brandName} — Made with Love`,
+    aboutUs: `${input.brandName} is a passionate brand dedicated to bringing you the finest ${input.category} products. We believe in quality, authenticity, and the joy of discovery.`,
+    bannerTitle: "Shop Now",
+    bannerSubtitle: `Discover the world of ${input.brandName}`,
+    seoTitle: `${input.brandName} | Premium ${input.category}`,
+    seoDescription: `Shop premium ${input.category} at ${input.brandName}. Quality products, fast shipping worldwide.`,
+  };
+
+  try {
+    const result = await callGmiJSON<BrandCopyResult>({
+      system:
+        "You are a brand copywriter for global e-commerce. Return JSON only with fields: slogan (string, English, ≤10 words), aboutUs (string, English, ~50 words), bannerTitle (string, English, ≤5 words), bannerSubtitle (string, English, ≤15 words), seoTitle (string, English), seoDescription (string, English, ≤150 chars).",
+      user: JSON.stringify({
+        task: "generate_brand_copy",
+        brandName: input.brandName,
+        category: input.category,
+        color: input.color,
+        story: input.story ?? "",
+      }),
+    });
+
+    return {
+      slogan: result.slogan ?? fallback.slogan,
+      aboutUs: result.aboutUs ?? fallback.aboutUs,
+      bannerTitle: result.bannerTitle ?? fallback.bannerTitle,
+      bannerSubtitle: result.bannerSubtitle ?? fallback.bannerSubtitle,
+      seoTitle: result.seoTitle ?? fallback.seoTitle,
+      seoDescription: result.seoDescription ?? fallback.seoDescription,
+    };
+  } catch {
+    return fallback;
   }
 }

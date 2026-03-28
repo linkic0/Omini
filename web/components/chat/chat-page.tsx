@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Bot, Globe, Pencil } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 
+import { ChatMessageContent } from "@/components/chat/chat-message-content";
 import { useDemoSession } from "@/components/providers/demo-session-provider";
 import {
   createChatFallback,
@@ -16,16 +17,12 @@ import {
 } from "@/lib/fallback-data";
 import type {
   ApiEnvelope,
+  ChatMessage,
   LandingData,
   MarketId,
   PositioningCard,
   WorkspaceData,
 } from "@/lib/types";
-
-type Message = {
-  type: "ai" | "user";
-  content: ReactNode;
-};
 
 const MARKETS: Array<{ id: MarketId; label: string; flag: string }> = [
   { id: "us", label: "北美", flag: "🇺🇸" },
@@ -49,7 +46,7 @@ export function ChatPage({ initialIdea }: { initialIdea?: string }) {
   const scanTimeoutRef = useRef<number | null>(null);
   const freshConversationRef = useRef<string | null>(null);
 
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [stage, setStage] = useState(session.positioning ? 3 : 0);
   const [selectedMarket, setSelectedMarket] = useState<MarketId>(session.market ?? DEFAULT_MARKET);
   const [showLoading, setShowLoading] = useState(false);
@@ -126,6 +123,20 @@ export function ChatPage({ initialIdea }: { initialIdea?: string }) {
     setBusy(false);
   }, [clearScanTimers]);
 
+  const handleMarketSelect = useCallback((marketId: MarketId, label: string) => {
+    if (marketLock.current) return;
+    marketLock.current = true;
+    setSelectedMarket(marketId);
+    mergeSession({ idea, market: marketId });
+    window.setTimeout(() => {
+      setMessages((current) => [
+        ...current,
+        { type: "user", data: { kind: "text", text: label } },
+      ]);
+      setStage(2);
+    }, 500);
+  }, [idea, mergeSession]);
+
   async function postJSON<T>(
     url: string,
     body: Record<string, unknown>,
@@ -149,10 +160,12 @@ export function ChatPage({ initialIdea }: { initialIdea?: string }) {
         postJSON<WorkspaceData>("/api/workspace", {
           idea,
           market: selectedMarket,
+          positioning: nextPositioning,
         }),
         postJSON<LandingData>("/api/landing", {
           idea,
           market: selectedMarket,
+          positioning: nextPositioning,
         }),
       ]);
 
@@ -241,7 +254,7 @@ export function ChatPage({ initialIdea }: { initialIdea?: string }) {
       setMessages([
         {
           type: "ai",
-          content: "你好！我是你的出海选品助手。告诉我，你想卖什么产品？它有什么特别之处？",
+          data: { kind: "text", text: "你好！我是你的出海选品助手。告诉我，你想卖什么产品？它有什么特别之处？" },
         },
       ]);
     }, 300);
@@ -255,7 +268,7 @@ export function ChatPage({ initialIdea }: { initialIdea?: string }) {
     }
 
     const timeoutId = window.setTimeout(() => {
-      setMessages((prev) => [...prev, { type: "user", content: idea }]);
+      setMessages((prev) => [...prev, { type: "user", data: { kind: "text", text: idea } }]);
       setStage(1);
     }, 1000);
 
@@ -278,59 +291,13 @@ export function ChatPage({ initialIdea }: { initialIdea?: string }) {
         ...prev,
         {
           type: "ai",
-          content: (
-            <div>
-              <p className="mb-6">{assistant}</p>
-              <div className="grid grid-cols-2 gap-4">
-                {MARKETS.map((market) => (
-                  <motion.button
-                    key={market.id}
-                    type="button"
-                    onClick={() => {
-                      if (marketLock.current) {
-                        return;
-                      }
-
-                      marketLock.current = true;
-                      setSelectedMarket(market.id);
-                      mergeSession({ idea, market: market.id });
-                      window.setTimeout(() => {
-                        setMessages((current) => [
-                          ...current,
-                          { type: "user", content: market.label },
-                        ]);
-                        setStage(2);
-                      }, 500);
-                    }}
-                    className={`relative overflow-hidden rounded-xl border-2 p-4 text-left transition-all ${
-                      selectedMarket === market.id
-                        ? "border-[#00d4ff] bg-[#00d4ff]/10"
-                        : "border-[#3a3a3a] bg-[#2a2a2a] hover:border-[#4a4a4a]"
-                    }`}
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                  >
-                    {selectedMarket === market.id ? (
-                      <motion.div
-                        layoutId="market-indicator"
-                        className="absolute bottom-0 left-0 top-0 w-1 rounded-l-xl bg-[#00d4ff]"
-                      />
-                    ) : null}
-                    <div className="flex items-center gap-3">
-                      <span className="text-3xl">{market.flag}</span>
-                      <span className="text-lg font-medium">{market.label}</span>
-                    </div>
-                  </motion.button>
-                ))}
-              </div>
-            </div>
-          ),
+          data: { kind: "market-select", assistant },
         },
       ]);
     }, 800);
 
     return () => window.clearTimeout(timeoutId);
-  }, [hydrated, idea, mergeSession, selectedMarket, session.positioning, stage]);
+  }, [hydrated, idea, selectedMarket, session.positioning, stage]);
 
   useEffect(() => {
     if (!hydrated || session.positioning || stage !== 2) {
@@ -363,16 +330,11 @@ export function ChatPage({ initialIdea }: { initialIdea?: string }) {
           ...currentMessages,
           {
             type: "ai",
-            content: (
-              <div>
-                <div className="mb-4 text-sm text-[#00d4ff]">
-                  发现！美国Z世代对 &ldquo;self-care&rdquo; 和 &ldquo;spirituality&rdquo; 讨论热度+300%
-                </div>
-                <p className="mb-2">
-                  基于美国市场洞察，你的手链主打哪个卖点？选一个或自定义：
-                </p>
-              </div>
-            ),
+            data: {
+              kind: "insight",
+              insight: '发现！美国Z世代对 "self-care" 和 "spirituality" 讨论热度+300%',
+              prompt: "基于美国市场洞察，你的手链主打哪个卖点？选一个或自定义：",
+            },
           },
         ]);
         window.setTimeout(() => {
@@ -507,7 +469,13 @@ export function ChatPage({ initialIdea }: { initialIdea?: string }) {
                       : "bg-[#00d4ff] text-[#1a1a1a]"
                   }`}
                 >
-                  <div className="text-base leading-relaxed">{message.content}</div>
+                  <div className="text-base leading-relaxed">
+                    <ChatMessageContent
+                      data={message.data}
+                      selectedMarket={selectedMarket}
+                      onMarketSelect={handleMarketSelect}
+                    />
+                  </div>
                 </div>
               </motion.div>
             ))}

@@ -1,7 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function POST(req: NextRequest) {
-  const { storeUrl, apiKey, brandName, template, color, copy } = await req.json()
+  const body = await req.json()
+  const storeUrl: string = String(body.storeUrl ?? "").trim()
+  const apiKey: string = String(body.apiKey ?? "").trim()
+  const brandName: string = String(body.brandName ?? "").trim().slice(0, 100)
+  const color: string = String(body.color ?? "").trim()
+  const copy = body.copy
+
+  if (!storeUrl || !apiKey) {
+    return NextResponse.json({ error: "storeUrl and apiKey are required" }, { status: 400 })
+  }
 
   const baseUrl = `https://${storeUrl.replace(/^https?:\/\//, '')}`
   const headers = {

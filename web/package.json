@@ -10,9 +10,10 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.80.0",
+    "@ai-sdk/openai": "^3.0.48",
     "@radix-ui/react-tabs": "^1.1.13",
     "@radix-ui/react-tooltip": "^1.2.8",
+    "ai": "^6.0.141",
     "lucide-react": "^1.7.0",
     "motion": "^12.38.0",
     "next": "16.2.1",

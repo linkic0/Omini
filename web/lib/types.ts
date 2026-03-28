@@ -184,3 +184,15 @@ export type DemoSession = {
   source?: SourceKind;
   cartCount?: number;
 };
+
+// ─── Chat message types (data-driven rendering) ───────────────────────────
+
+export type ChatMessageData =
+  | { kind: "text"; text: string }
+  | { kind: "market-select"; assistant: string }
+  | { kind: "insight"; insight: string; prompt: string };
+
+export type ChatMessage = {
+  type: "ai" | "user";
+  data: ChatMessageData;
+};
