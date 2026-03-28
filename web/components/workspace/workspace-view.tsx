@@ -5,12 +5,14 @@ import { useRouter } from "next/navigation";
 import {
   AlertTriangle,
   ArrowUp,
+  BarChart2,
   Check,
   Copy,
   ExternalLink,
   Lightbulb,
   Minus,
   Rocket,
+  Store,
   TrendingUp,
 } from "lucide-react";
 import { motion } from "motion/react";
@@ -28,6 +30,7 @@ import {
   YAxis,
 } from "recharts";
 
+import { useDemoSession } from "@/components/providers/demo-session-provider";
 import type { WorkspaceData } from "./types";
 
 type WorkspaceViewProps = {
@@ -87,6 +90,7 @@ function CountUp({
 
 export function WorkspaceView({ session, fallback }: WorkspaceViewProps) {
   const router = useRouter();
+  const { session: demoSession } = useDemoSession();
   const selected = session ?? fallback;
   const [activeTab, setActiveTab] = useState<"overview" | "materials" | "analytics">(
     "overview",
@@ -150,18 +154,41 @@ export function WorkspaceView({ session, fallback }: WorkspaceViewProps) {
             ))}
           </div>
 
-          <button
-            type="button"
-            onClick={() => {
-              toast.success("正在打开独立站预览");
-              router.push("/preview");
-            }}
-            className="inline-flex items-center gap-2 rounded-lg bg-[#00d4ff] px-3 py-2 text-xs font-medium text-black transition-colors hover:bg-[#00b8e6] md:px-6 md:text-sm"
-          >
-            <Rocket className="h-4 w-4 md:h-[18px] md:w-[18px]" />
-            <span className="hidden sm:inline">发布我的出海站</span>
-            <span className="sm:hidden">发布</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => router.push('/dashboard')}
+              className="inline-flex items-center gap-2 rounded-lg border border-[#2a2a2a] px-3 py-2 text-xs font-medium text-gray-300 transition-colors hover:border-[#00d4ff]/50 hover:text-white md:px-4 md:text-sm"
+            >
+              <BarChart2 className="h-4 w-4" />
+              <span className="hidden sm:inline">数据面板</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                const deployUrl = `/deploy?brandName=${encodeURIComponent(demoSession?.positioning?.brandName ?? demoSession?.idea ?? '')}&category=${encodeURIComponent(demoSession?.positioning?.marketLabel ?? 'Fashion')}&color=%2300d4ff`;
+                router.push(deployUrl);
+              }}
+              className="inline-flex items-center gap-2 rounded-lg border border-[#00d4ff]/40 px-3 py-2 text-xs font-medium text-[#00d4ff] transition-colors hover:bg-[#00d4ff]/10 md:px-4 md:text-sm"
+            >
+              <Store className="h-4 w-4" />
+              <span className="hidden sm:inline">部署独立站</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                toast.success("正在打开独立站预览");
+                router.push("/preview");
+              }}
+              className="inline-flex items-center gap-2 rounded-lg bg-[#00d4ff] px-3 py-2 text-xs font-medium text-black transition-colors hover:bg-[#00b8e6] md:px-6 md:text-sm"
+            >
+              <Rocket className="h-4 w-4 md:h-[18px] md:w-[18px]" />
+              <span className="hidden sm:inline">发布我的出海站</span>
+              <span className="sm:hidden">发布</span>
+            </button>
+          </div>
         </div>
       </header>
 
