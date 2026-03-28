@@ -6,6 +6,8 @@ import MetricCard from '@/components/dashboard/MetricCard'
 import PostRanking from '@/components/dashboard/PostRanking'
 import SentimentPanel from '@/components/dashboard/SentimentPanel'
 import SalesChart from '@/components/dashboard/SalesChart'
+import { useLanguage } from '@/components/providers/language-provider'
+import { LanguageToggle } from '@/components/language-toggle'
 
 const mockPosts = [
   { id: 1, image: '🧣', caption: 'New winter collection is here!', likes: 342, comments: 28, clicks: 89, orders: 5, revenue: 420 },
@@ -23,6 +25,7 @@ interface Sentiment {
 
 export default function DashboardPage() {
   const router = useRouter()
+  const { t } = useLanguage()
   const [sentiment, setSentiment] = useState<Sentiment>({ positive: 72, neutral: 20, negative: 8, keywords: [] })
   const [sentimentLoading, setSentimentLoading] = useState(true)
   const [sentimentError, setSentimentError] = useState(false)
@@ -48,19 +51,20 @@ export default function DashboardPage() {
               onClick={() => router.push('/workspace')}
               className="text-gray-400 hover:text-white transition-colors"
             >
-              ← 返回工作台
+              ← {t('返回工作台', 'Back to Workspace')}
             </button>
             <div>
-              <h1 className="text-2xl font-bold text-white">Omini Dashboard</h1>
-              <p className="text-gray-400 text-sm mt-1">出海决策面板 · 实时更新</p>
+              <h1 className="text-2xl font-bold text-white">{t('Omini Dashboard', 'Omini Dashboard')}</h1>
+              <p className="text-gray-400 text-sm mt-1">{t('出海决策面板 · 实时更新', 'GTM Dashboard · Real-time')}</p>
             </div>
           </div>
           <div className="flex items-center gap-4">
+            <LanguageToggle />
             <button
               onClick={() => router.push('/deploy')}
               className="px-4 py-2 bg-[#00d4ff] text-black rounded-lg font-medium hover:bg-[#00b8e6] transition-colors text-sm"
             >
-              部署独立站
+              {t('部署独立站', 'Deploy Store')}
             </button>
             <div className="text-xs text-gray-600">{new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</div>
           </div>
@@ -71,14 +75,14 @@ export default function DashboardPage() {
           <div className="flex items-center gap-6">
             <div>
               <div className={`text-7xl font-black ${healthColor}`}>{healthScore}</div>
-              <div className="text-gray-400 text-sm mt-1">品牌健康度</div>
+              <div className="text-gray-400 text-sm mt-1">{t('品牌健康度', 'Brand Health')}</div>
             </div>
             <div className="flex-1">
-              <div className="text-white font-medium mb-2">整体状态：良好 ✅</div>
+              <div className="text-white font-medium mb-2">{t('整体状态：良好 ✅', 'Overall: Healthy ✅')}</div>
               <div className="text-gray-400 text-sm space-y-1">
-                <div>• Instagram 互动率高于行业均值 2.1%</div>
-                <div>• 本月 GMV 环比增长 23.4%</div>
-                <div>• 建议：增加发帖频率，周三/周五效果最佳</div>
+                <div>• {t('Instagram 互动率高于行业均值 2.1%', 'Instagram engagement 2.1% above industry avg')}</div>
+                <div>• {t('本月 GMV 环比增长 23.4%', 'GMV grew 23.4% MoM')}</div>
+                <div>• {t('建议：增加发帖频率，周三/周五效果最佳', 'Tip: Post more on Wed/Fri for best results')}</div>
               </div>
             </div>
           </div>

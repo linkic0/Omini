@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useLanguage } from '@/components/providers/language-provider'
 
 interface BrandInfo {
   brandName: string
@@ -27,6 +28,7 @@ interface Step2Props {
 }
 
 export function Step2BrandInfo({ info, onChange, onNext, onBack, onCopyGenerated }: Step2Props) {
+  const { t } = useLanguage()
   const [copy, setCopy] = useState<CopyResult | null>(null)
   const [generating, setGenerating] = useState(false)
 
@@ -49,14 +51,14 @@ export function Step2BrandInfo({ info, onChange, onNext, onBack, onCopyGenerated
 
   return (
     <div>
-      <h2 className="text-2xl font-bold text-white mb-2">填写品牌信息</h2>
-      <p className="text-gray-400 mb-8">AI 将根据这些信息自动生成你的品牌文案</p>
+      <h2 className="text-2xl font-bold text-white mb-2">{t('填写品牌信息', 'Brand Information')}</h2>
+      <p className="text-gray-400 mb-8">{t('AI 将根据这些信息自动生成你的品牌文案', 'AI will generate your brand copy based on this info')}</p>
 
       <div className="grid grid-cols-2 gap-8">
         {/* Left: Form */}
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">品牌名称 *</label>
+            <label className="block text-sm font-medium text-gray-300 mb-1">{t('品牌名称 *', 'Brand Name *')}</label>
             <input
               type="text"
               value={info.brandName}
@@ -66,7 +68,7 @@ export function Step2BrandInfo({ info, onChange, onNext, onBack, onCopyGenerated
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">品类</label>
+            <label className="block text-sm font-medium text-gray-300 mb-1">{t('品类', 'Category')}</label>
             <select
               value={info.category}
               onChange={e => onChange({ ...info, category: e.target.value })}
@@ -80,7 +82,7 @@ export function Step2BrandInfo({ info, onChange, onNext, onBack, onCopyGenerated
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">主色调</label>
+            <label className="block text-sm font-medium text-gray-300 mb-1">{t('主色调', 'Brand Color')}</label>
             <div className="flex items-center gap-3">
               <input
                 type="color"
@@ -92,11 +94,11 @@ export function Step2BrandInfo({ info, onChange, onNext, onBack, onCopyGenerated
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">品牌故事（可选）</label>
+            <label className="block text-sm font-medium text-gray-300 mb-1">{t('品牌故事（可选）', 'Brand Story (optional)')}</label>
             <textarea
               value={info.story}
               onChange={e => onChange({ ...info, story: e.target.value })}
-              placeholder="简单描述你的品牌理念或故事..."
+              placeholder={t('简单描述你的品牌理念或故事...', 'Briefly describe your brand story...')}
               rows={3}
               className="w-full px-4 py-2.5 bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl focus:outline-none focus:border-[#00d4ff] text-white placeholder-gray-600 resize-none"
             />
@@ -107,16 +109,16 @@ export function Step2BrandInfo({ info, onChange, onNext, onBack, onCopyGenerated
             className="w-full py-2.5 bg-[#00d4ff] text-black rounded-xl font-medium hover:bg-[#00b8e6] disabled:opacity-40 transition-colors flex items-center justify-center gap-2"
           >
             {generating ? (
-              <><span className="animate-spin">⟳</span> AI 生成中...</>
+              <><span className="animate-spin">⟳</span> {t('AI 生成中...', 'Generating...')}</>
             ) : (
-              <>✨ AI 生成品牌文案</>
+              <>✨ {t('AI 生成品牌文案', 'AI Generate Copy')}</>
             )}
           </button>
         </div>
 
         {/* Right: Preview */}
         <div className="bg-[#242424] rounded-2xl p-5 border border-[#2a2a2a]">
-          <div className="text-sm font-medium text-gray-400 mb-4">文案预览</div>
+          <div className="text-sm font-medium text-gray-400 mb-4">{t('文案预览', 'Copy Preview')}</div>
           {copy ? (
             <div className="space-y-4">
               <div>
@@ -141,7 +143,7 @@ export function Step2BrandInfo({ info, onChange, onNext, onBack, onCopyGenerated
           ) : (
             <div className="flex flex-col items-center justify-center h-48 text-gray-600">
               <div className="text-4xl mb-3">✨</div>
-              <div className="text-sm">填写品牌信息后点击生成</div>
+              <div className="text-sm">{t('填写品牌信息后点击生成', 'Fill in brand info then click generate')}</div>
             </div>
           )}
         </div>
@@ -152,14 +154,14 @@ export function Step2BrandInfo({ info, onChange, onNext, onBack, onCopyGenerated
           onClick={onBack}
           className="px-6 py-3 border border-[#2a2a2a] text-gray-400 rounded-xl hover:bg-[#2a2a2a] transition-colors"
         >
-          ← 返回
+          ← {t('返回', 'Back')}
         </button>
         <button
           onClick={onNext}
           disabled={!info.brandName}
           className="flex-1 py-3 bg-[#00d4ff] text-black rounded-xl font-semibold disabled:opacity-40 hover:bg-[#00b8e6] transition-colors"
         >
-          下一步：连接 Shopify →
+          {t('下一步：连接 Shopify →', 'Next: Connect Shopify →')}
         </button>
       </div>
     </div>

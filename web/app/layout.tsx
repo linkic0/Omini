@@ -3,6 +3,7 @@ import type { CSSProperties } from "react";
 import { Toaster } from "sonner";
 
 import { DemoSessionProvider } from "@/components/providers/demo-session-provider";
+import { LanguageProvider } from "@/components/providers/language-provider";
 import "./globals.css";
 
 type FontVariableStyle = CSSProperties & Record<`--${string}`, string>;
@@ -37,10 +38,12 @@ export default function RootLayout({
       style={fontVariables}
     >
       <body className="min-h-full bg-[var(--page-bg)] text-[var(--text-primary)]">
-        <DemoSessionProvider>
-          {children}
-          <Toaster position="top-center" theme="dark" richColors />
-        </DemoSessionProvider>
+        <LanguageProvider>
+          <DemoSessionProvider>
+            {children}
+            <Toaster position="top-center" theme="dark" richColors />
+          </DemoSessionProvider>
+        </LanguageProvider>
       </body>
     </html>
   );

@@ -5,8 +5,8 @@ import { useRouter } from 'next/navigation'
 import { Step1Template } from '@/components/deploy/Step1Template'
 import { Step2BrandInfo } from '@/components/deploy/Step2BrandInfo'
 import { Step3Deploy } from '@/components/deploy/Step3Deploy'
-
-const steps = ['选择模板', '品牌信息', '连接部署']
+import { useLanguage } from '@/components/providers/language-provider'
+import { LanguageToggle } from '@/components/language-toggle'
 
 export interface CopyResult {
   slogan: string
@@ -25,6 +25,9 @@ interface DeployWizardProps {
 
 export function DeployWizard({ initialBrandName, initialCategory, initialColor }: DeployWizardProps) {
   const router = useRouter()
+  const { t } = useLanguage()
+  const steps = [t('选择模板', 'Template'), t('品牌信息', 'Brand Info'), t('连接部署', 'Deploy')]
+
   const [step, setStep] = useState(0)
   const [template, setTemplate] = useState('')
   const [brandInfo, setBrandInfo] = useState({
@@ -49,14 +52,17 @@ export function DeployWizard({ initialBrandName, initialCategory, initialColor }
               onClick={() => router.push('/workspace')}
               className="text-gray-400 hover:text-white transition-colors text-sm"
             >
-              ← 返回工作台
+              ← {t('返回工作台', 'Back to Workspace')}
             </button>
             <div className="flex items-center gap-2">
               <span className="text-2xl">🚀</span>
               <span className="font-bold text-white text-lg">Omini Store Deploy</span>
             </div>
           </div>
-          <div className="text-sm text-gray-400">一键部署你的出海独立站</div>
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-gray-400">{t('一键部署你的出海独立站', 'Deploy Your Store in One Click')}</span>
+            <LanguageToggle />
+          </div>
         </div>
       </header>
 
