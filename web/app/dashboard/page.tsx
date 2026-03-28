@@ -90,9 +90,9 @@ export default function DashboardPage() {
 
         {/* Metric Cards */}
         <div className="grid grid-cols-3 gap-4 mb-6">
-          <MetricCard title="Instagram 互动率" value="4.2%" growth="+0.8%" positive icon="📱" subtitle="12,400 粉丝" />
-          <MetricCard title="独立站月流量" value="8,340" growth="+12.1%" positive icon="🌐" subtitle="转化率 2.8%" />
-          <MetricCard title="月销售 GMV" value="$15,680" growth="+23.4%" positive icon="💰" subtitle="本月 142 单" />
+          <MetricCard title={t('Instagram 互动率', 'Instagram Engagement')} value="4.2%" growth="+0.8%" positive icon="📱" subtitle={t('12,400 粉丝', '12,400 Followers')} />
+          <MetricCard title={t('独立站月流量', 'Monthly Store Traffic')} value="8,340" growth="+12.1%" positive icon="🌐" subtitle={t('转化率 2.8%', 'Conv. Rate 2.8%')} />
+          <MetricCard title={t('月销售 GMV', 'Monthly GMV')} value="$15,680" growth="+23.4%" positive icon="💰" subtitle={t('本月 142 单', '142 Orders This Month')} />
         </div>
 
         {/* Bottom Grid */}

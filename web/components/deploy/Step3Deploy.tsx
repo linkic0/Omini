@@ -29,14 +29,6 @@ interface Step3Props {
   brandColor: string
 }
 
-const deploySteps = [
-  '验证 Shopify 连接',
-  '创建品牌主题',
-  '配置品牌信息',
-  '同步产品目录',
-  '部署完成',
-]
-
 export function Step3Deploy({ config, onChange, onDeploy, onBack, brandName, copy, template, brandColor }: Step3Props) {
   const router = useRouter()
   const { t } = useLanguage()

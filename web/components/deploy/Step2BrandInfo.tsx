@@ -74,11 +74,11 @@ export function Step2BrandInfo({ info, onChange, onNext, onBack, onCopyGenerated
               onChange={e => onChange({ ...info, category: e.target.value })}
               className="w-full px-4 py-2.5 bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl focus:outline-none focus:border-[#00d4ff] text-white"
             >
-              <option value="Fashion">时尚服装</option>
-              <option value="Handmade Crafts">手工艺品</option>
-              <option value="Beauty & Skincare">美妆护肤</option>
-              <option value="Jewelry">珠宝首饰</option>
-              <option value="Home Decor">家居装饰</option>
+              <option value="Fashion">{t('时尚服装', 'Fashion')}</option>
+              <option value="Handmade Crafts">{t('手工艺品', 'Handmade Crafts')}</option>
+              <option value="Beauty & Skincare">{t('美妆护肤', 'Beauty & Skincare')}</option>
+              <option value="Jewelry">{t('珠宝首饰', 'Jewelry')}</option>
+              <option value="Home Decor">{t('家居装饰', 'Home Decor')}</option>
             </select>
           </div>
           <div>
@@ -126,7 +126,7 @@ export function Step2BrandInfo({ info, onChange, onNext, onBack, onCopyGenerated
                 <div className="text-lg font-bold text-white">"{copy.slogan}"</div>
               </div>
               <div>
-                <div className="text-xs text-gray-500 mb-1">Banner 标题</div>
+                <div className="text-xs text-gray-500 mb-1">{t('Banner 标题', 'Banner Title')}</div>
                 <div className="text-2xl font-black" style={{ color: info.color }}>{copy.bannerTitle}</div>
                 <div className="text-sm text-gray-400">{copy.bannerSubtitle}</div>
               </div>
