@@ -70,6 +70,27 @@ const MOCK_IMAGES: Record<
   ],
 };
 
+type SelectableImage = {
+  key: string;
+  label: string;
+  bg: string;
+  emoji: string;
+  isVideo?: boolean;
+};
+
+const VIDEO_THUMBS: SelectableImage[] = [
+  { key: "vid-1", label: "片段一·产品展示", bg: "linear-gradient(135deg,#6b21a8 0%,#db2777 100%)", emoji: "▶", isVideo: true },
+  { key: "vid-2", label: "片段二·使用过程", bg: "linear-gradient(135deg,#0e7490 0%,#0891b2 100%)", emoji: "▶", isVideo: true },
+  { key: "vid-3", label: "片段三·用户好评", bg: "linear-gradient(135deg,#92400e 0%,#f59e0b 100%)", emoji: "▶", isVideo: true },
+];
+
+const PUBLISH_STEPS = [
+  { label: "连接账号", duration: 800 },
+  { label: "上传素材", duration: 1200 },
+  { label: "生成预览", duration: 1000 },
+  { label: "发布中",   duration: 1500 },
+];
+
 function CountUp({
   value,
   duration = 1000,
@@ -136,6 +157,13 @@ export function WorkspaceView({ session, fallback }: WorkspaceViewProps) {
     whitebg: "idle",
     banner: "idle",
   });
+  const [generatedImageUrls, setGeneratedImageUrls] = useState<Record<string, string>>({});
+  const [selectedImageKeys, setSelectedImageKeys] = useState<Set<string>>(new Set());
+  const [perImageCopy, setPerImageCopy] = useState<Record<string, number>>({});
+  const [publishQueue, setPublishQueue] = useState<Array<{ key: string }>>([]);
+  const [currentPublish, setCurrentPublish] = useState<{ key: string } | null>(null);
+  const [publishStep, setPublishStep] = useState(-1);
+  const [publishDone, setPublishDone] = useState(false);
 
   const completedCount = checklist.filter((item) => item.completed).length;
   const progressPercentage = (completedCount / checklist.length) * 100;
@@ -155,12 +183,107 @@ export function WorkspaceView({ session, fallback }: WorkspaceViewProps) {
     toast.success("已复制到剪贴板");
   };
 
-  const handleGenerateImages = (type: ImageTypeId) => {
-    setImageGenStates((prev) => ({ ...prev, [type]: "generating" }));
-    window.setTimeout(() => {
+  const handleGenerateImages = async (type: ImageTypeId) => {
+    // Check if images already exist for this type - skip if already generated
+    const existingKeys = Object.keys(generatedImageUrls).filter(k => k.startsWith(type));
+    if (existingKeys.length >= 3) {
+      // Already generated, just mark as done
       setImageGenStates((prev) => ({ ...prev, [type]: "done" }));
-    }, 2200);
+      return;
+    }
+
+    setImageGenStates((prev) => ({ ...prev, [type]: "generating" }));
+
+    const idea = demoSession?.idea ?? selected.idea;
+    const market = demoSession?.market ?? "us";
+
+    try {
+      const response = await fetch("/api/generate-images", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ idea, market }),
+      });
+
+      if (!response.ok || !response.body) throw new Error("API failed");
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n\n");
+        buffer = lines.pop() ?? "";
+
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          const event = JSON.parse(line.slice(6)) as {
+            type: string; imageType?: string; index?: number; url?: string; error?: string;
+          };
+          if (event.type === "image_done" && event.imageType === type && event.url) {
+            const key = `${event.imageType}-${event.index}`;
+            setGeneratedImageUrls((prev) => ({ ...prev, [key]: event.url! }));
+          }
+          if (event.type === "all_done" ||
+              (event.type === "error" && event.imageType === type)) {
+            setImageGenStates((prev) => ({ ...prev, [type]: "done" }));
+          }
+        }
+      }
+      setImageGenStates((prev) => ({ ...prev, [type]: "done" }));
+    } catch {
+      // Fallback to mock if API not available
+      window.setTimeout(() => {
+        setImageGenStates((prev) => ({ ...prev, [type]: "done" }));
+      }, 2200);
+    }
   };
+
+  const toggleImageSelect = (key: string) => {
+    setSelectedImageKeys((prev) => {
+      const next = new Set(prev);
+      next.has(key) ? next.delete(key) : next.add(key);
+      return next;
+    });
+  };
+
+  const handlePublishAll = () => {
+    const items = [...selectedImageKeys].map((key) => ({ key }));
+    if (!items.length) return;
+    setPublishQueue(items.slice(1));
+    setCurrentPublish(items[0]);
+    setPublishStep(0);
+    setPublishDone(false);
+  };
+
+  const handleModalClose = () => {
+    if (publishQueue.length > 0) {
+      setCurrentPublish(publishQueue[0]);
+      setPublishQueue((q) => q.slice(1));
+      setPublishStep(0);
+      setPublishDone(false);
+    } else {
+      setCurrentPublish(null);
+    }
+  };
+
+  // Drive publish step progression
+  useEffect(() => {
+    if (!currentPublish || publishDone) return;
+    if (publishStep < 0) return;
+    const step = PUBLISH_STEPS[publishStep];
+    if (!step) return;
+    const timer = window.setTimeout(() => {
+      if (publishStep < PUBLISH_STEPS.length - 1) {
+        setPublishStep((s) => s + 1);
+      } else {
+        setPublishDone(true);
+      }
+    }, step.duration);
+    return () => clearTimeout(timer);
+  }, [currentPublish, publishStep, publishDone]);
 
   return (
     <div className="min-h-screen bg-[#1a1a1a] text-white">
@@ -473,82 +596,6 @@ export function WorkspaceView({ session, fallback }: WorkspaceViewProps) {
               </div>
             </section>
 
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-              <div className="space-y-4 lg:col-span-2">
-                <h3 className="text-[16px] font-semibold">帖子文案库</h3>
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                  {selected.materials.posts.map((post, index) => (
-                    <div
-                      key={`${post.type}-${index}`}
-                      onClick={() => setSelectedPost(index)}
-                      className={`rounded-lg border-2 p-4 transition-all ${
-                        selectedPost === index
-                          ? "border-[#00d4ff] bg-[linear-gradient(180deg,rgba(39,39,41,0.96),rgba(26,26,27,0.98))] shadow-lg shadow-[#00d4ff]/12"
-                          : "border-transparent bg-[linear-gradient(180deg,rgba(35,35,37,0.96),rgba(24,24,25,0.98))] hover:border-white/10"
-                      }`}
-                    >
-                      <div className="mb-3 flex items-center justify-between">
-                        <span className="text-sm font-semibold text-[#00d4ff]">{post.type}</span>
-                        {selectedPost === index ? <span className="h-2 w-2 rounded-full bg-[#00d4ff]" /> : null}
-                      </div>
-                      <p className="mb-3 line-clamp-4 text-sm leading-relaxed text-gray-300">
-                        {post.content}
-                      </p>
-                      <p className="mb-3 break-words text-xs text-[#00d4ff]">{post.hashtags}</p>
-                      <button
-                        type="button"
-                        onClick={() => void copyToClipboard(`${post.content}\n\n${post.hashtags}`)}
-                        className="flex items-center gap-2 text-xs text-gray-400 transition-colors hover:text-[#00d4ff]"
-                      >
-                        <Copy size={14} />
-                        复制文案
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <h3 className="mb-4 text-[16px] font-semibold">3帧Story分镜</h3>
-                <div className="space-y-3">
-                  {selected.materials.storyFrames.map((frame) => (
-                    <div key={frame.title} className={`${insetPanelClass} p-4`}>
-                      <div className="mb-2 flex items-center justify-between">
-                        <span className="text-sm font-semibold">{frame.title}</span>
-                        <span className="text-xs text-gray-500">{frame.description}</span>
-                      </div>
-                      <div className="mb-2 flex h-32 items-center justify-center rounded-lg bg-gradient-to-br from-purple-900/30 to-pink-900/30">
-                        <div className="text-center text-3xl">{frame.visual}</div>
-                      </div>
-                      <div className="text-xs italic text-gray-400">&ldquo;{frame.copy}&rdquo;</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            <section className={`${panelClass} p-6`}>
-              <h3 className="mb-4 text-[16px] font-semibold">Hashtag推荐</h3>
-              <div className="flex flex-wrap gap-3">
-                {selected.materials.hashtags.map((item, index) => (
-                  <button
-                    key={`${item}-${index}`}
-                    type="button"
-                    onClick={() => void copyToClipboard(item)}
-                    className={`rounded-full bg-[#00d4ff]/10 px-4 py-2 text-[#00d4ff] transition-colors hover:bg-[#00d4ff]/20 ${
-                      hashtagSizes[index] === "large"
-                        ? "text-base font-semibold"
-                        : hashtagSizes[index] === "medium"
-                          ? "text-sm font-medium"
-                          : "text-xs"
-                    }`}
-                  >
-                    {item}
-                  </button>
-                ))}
-              </div>
-            </section>
-
             {/* ── Image Asset Generation ─────────────────────────── */}
             <section className={`${panelClass} p-6`}>
               <div className="mb-5 flex items-center justify-between">
@@ -611,57 +658,84 @@ export function WorkspaceView({ session, fallback }: WorkspaceViewProps) {
               ) : (
                 <div>
                   <div
-                    className={`grid gap-4 ${
-                      activeImageType === "banner" ? "grid-cols-1" : "grid-cols-3"
+                    className={`grid gap-3 ${
+                      activeImageType === "banner" ? "grid-cols-1" : "grid-cols-2 md:grid-cols-3"
                     }`}
                   >
-                    {MOCK_IMAGES[activeImageType].map((img, i) => (
-                      <div key={i} className="group relative overflow-hidden rounded-xl">
+                    {MOCK_IMAGES[activeImageType].map((img, i) => {
+                        const imgKey = `${activeImageType}-${i}`;
+                        const isSelected = selectedImageKeys.has(imgKey);
+                        return (
+                      <div
+                        key={i}
+                        onClick={() => toggleImageSelect(imgKey)}
+                        className={`group relative cursor-pointer overflow-hidden rounded-lg transition-all ${
+                          isSelected ? "ring-2 ring-[#00d4ff]" : "hover:ring-1 hover:ring-[#00d4ff]/40"
+                        }`}
+                      >
+                        {/* Checkbox overlay */}
+                        <div className="absolute right-2 top-2 z-10">
+                          <div className={`flex h-5 w-5 items-center justify-center rounded-full border-2 transition-all ${
+                            isSelected ? "border-[#00d4ff] bg-[#00d4ff]" : "border-white/70 bg-black/40"
+                          }`}>
+                            {isSelected && (
+                              <svg className="h-3 w-3 text-black" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                              </svg>
+                            )}
+                          </div>
+                        </div>
+                        {generatedImageUrls[imgKey] ? (
+                          <img
+                            src={generatedImageUrls[imgKey]}
+                            alt={imgKey}
+                            className={`w-full object-cover ${
+                              activeImageType === "banner" ? "aspect-[3/1]" : "aspect-square"
+                            }`}
+                          />
+                        ) : (
                         <div
                           className={`flex w-full items-center justify-center ${
-                            activeImageType === "banner" ? "aspect-[4/1]" : "aspect-square"
+                            activeImageType === "banner" ? "aspect-[3/1]" : "aspect-square"
                           }`}
                           style={{ background: img.bg }}
                         >
                           {activeImageType === "whitebg" ? (
                             <div className="flex flex-col items-center gap-2">
-                              <span className="text-7xl">{img.emoji}</span>
+                              <span className="text-5xl">{img.emoji}</span>
                               <span className="text-xs font-medium text-gray-500">
                                 {selected.idea.slice(0, 10)}
                               </span>
                             </div>
                           ) : activeImageType === "banner" ? (
-                            <div className="flex w-full items-center justify-between px-12">
+                            <div className="flex w-full items-center justify-between px-8">
                               <div>
-                                <div className="text-xl font-bold text-white">
-                                  {selected.idea.slice(0, 16)}
+                                <div className="text-lg font-bold text-white">
+                                  {selected.idea.slice(0, 14)}
                                 </div>
-                                <div className="mt-1 text-sm text-white/70">{img.tagline}</div>
+                                <div className="text-xs text-white/70">{img.tagline}</div>
                               </div>
-                              <div className="flex flex-col items-center gap-2">
-                                <span className="text-5xl">{img.emoji}</span>
-                                <span className="rounded-full bg-white/20 px-4 py-1 text-xs font-semibold text-white">
-                                  {img.cta}
-                                </span>
-                              </div>
+                              <span className="text-4xl">{img.emoji}</span>
                             </div>
                           ) : (
                             <div className="flex flex-col items-center gap-2">
-                              <span className="text-6xl">{img.emoji}</span>
+                              <span className="text-5xl">{img.emoji}</span>
                               <span className="text-xs text-white/60">{img.scene}</span>
                             </div>
                           )}
                         </div>
+                        )}
                         <button
                           type="button"
-                          onClick={() => toast.success("图片已保存到本地")}
+                          onClick={(e) => { e.stopPropagation(); toast.success("图片已保存到本地"); }}
                           className="absolute right-2 top-2 flex items-center gap-1 rounded-lg bg-black/50 px-2 py-1 text-xs text-white opacity-0 backdrop-blur-sm transition-opacity group-hover:opacity-100"
                         >
                           <Download className="h-3 w-3" />
                           下载
                         </button>
                       </div>
-                    ))}
+                        );
+                    })}
                   </div>
                   <button
                     type="button"
@@ -674,6 +748,234 @@ export function WorkspaceView({ session, fallback }: WorkspaceViewProps) {
                 </div>
               )}
             </section>
+
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+              <div className="space-y-4 lg:col-span-2">
+                <h3 className="text-[16px] font-semibold">帖子文案库</h3>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                  {selected.materials.posts.map((post, index) => (
+                    <div
+                      key={`${post.type}-${index}`}
+                      onClick={() => setSelectedPost(index)}
+                      className={`rounded-lg border-2 p-4 transition-all ${
+                        selectedPost === index
+                          ? "border-[#00d4ff] bg-[linear-gradient(180deg,rgba(39,39,41,0.96),rgba(26,26,27,0.98))] shadow-lg shadow-[#00d4ff]/12"
+                          : "border-transparent bg-[linear-gradient(180deg,rgba(35,35,37,0.96),rgba(24,24,25,0.98))] hover:border-white/10"
+                      }`}
+                    >
+                      <div className="mb-3 flex items-center justify-between">
+                        <span className="text-sm font-semibold text-[#00d4ff]">{post.type}</span>
+                        {selectedPost === index ? (
+                          <span className="rounded-full bg-green-600/30 px-2 py-0.5 text-[10px] font-semibold text-green-400">
+                            选中发布 ✓
+                          </span>
+                        ) : null}
+                      </div>
+                      <p className="mb-3 line-clamp-4 text-sm leading-relaxed text-gray-300">
+                        {post.content}
+                      </p>
+                      <p className="mb-3 break-words text-xs text-[#00d4ff]">{post.hashtags}</p>
+                      <button
+                        type="button"
+                        onClick={() => void copyToClipboard(`${post.content}\n\n${post.hashtags}`)}
+                        className="flex items-center gap-2 text-xs text-gray-400 transition-colors hover:text-[#00d4ff]"
+                      >
+                        <Copy size={14} />
+                        复制文案
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <div className="mb-4 flex items-center justify-between">
+                  <h3 className="text-[16px] font-semibold">产品宣传视频缩略图</h3>
+                  <span className="rounded-full bg-[#00d4ff]/10 px-2 py-1 text-xs text-[#00d4ff]">预设素材</span>
+                </div>
+                <p className="mb-4 text-xs text-gray-500">点击缩略图勾选，加入发布组装</p>
+                <div className="space-y-3">
+                  {VIDEO_THUMBS.map((thumb, i) => {
+                    const isSelected = selectedImageKeys.has(thumb.key);
+                    const frame = selected.materials.storyFrames[i];
+                    return (
+                      <div
+                        key={thumb.key}
+                        onClick={() => toggleImageSelect(thumb.key)}
+                        className={`flex cursor-pointer gap-4 rounded-lg border p-3 transition-all ${
+                          isSelected
+                            ? "border-[#00d4ff] bg-[#00d4ff]/5 ring-1 ring-[#00d4ff]/30"
+                            : "border-[#2a2a2a] bg-[#1f1f1f] hover:border-[#00d4ff]/40"
+                        }`}
+                      >
+                        {/* Video thumbnail */}
+                        <div className="relative shrink-0">
+                          <div
+                            className="flex h-24 w-14 items-center justify-center overflow-hidden rounded-lg"
+                            style={{ background: thumb.bg }}
+                          >
+                            <div className="flex flex-col items-center gap-1">
+                              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-black/40">
+                                <svg className="h-4 w-4 text-white" fill="currentColor" viewBox="0 0 24 24">
+                                  <path d="M8 5v14l11-7z" />
+                                </svg>
+                              </div>
+                            </div>
+                            <span className="absolute bottom-1 left-0 right-0 text-center text-[9px] font-medium text-white/80">
+                              {i + 1}/{VIDEO_THUMBS.length}
+                            </span>
+                          </div>
+                          {/* Checkbox */}
+                          <div className={`absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full border-2 transition-all ${
+                            isSelected ? "border-[#00d4ff] bg-[#00d4ff]" : "border-white/70 bg-black/40"
+                          }`}>
+                            {isSelected && (
+                              <svg className="h-3 w-3 text-black" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                              </svg>
+                            )}
+                          </div>
+                        </div>
+                        {/* Text */}
+                        <div className="flex flex-col justify-center">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-semibold">Frame {i + 1}</span>
+                            <span className="rounded bg-[#00d4ff]/15 px-2 py-0.5 text-xs text-[#00d4ff]">{thumb.label}</span>
+                          </div>
+                          {frame && (
+                            <>
+                              <p className="mt-1 text-xs text-gray-400">{frame.description}</p>
+                              <p className="mt-0.5 text-[10px] italic text-gray-600">&ldquo;{frame.copy}&rdquo;</p>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* ── Hashtag ── */}
+            <section className={`${panelClass} p-6`}>
+              <h3 className="mb-4 text-[16px] font-semibold">Hashtag推荐</h3>
+              <div className="flex flex-wrap gap-3">
+                {selected.materials.hashtags.map((item, index) => (
+                  <button
+                    key={`${item}-${index}`}
+                    type="button"
+                    onClick={() => void copyToClipboard(item)}
+                    className={`rounded-full bg-[#00d4ff]/10 px-4 py-2 text-[#00d4ff] transition-colors hover:bg-[#00d4ff]/20 ${
+                      hashtagSizes[index] === "large"
+                        ? "text-base font-semibold"
+                        : hashtagSizes[index] === "medium"
+                          ? "text-sm font-medium"
+                          : "text-xs"
+                    }`}
+                  >
+                    {item}
+                  </button>
+                ))}
+              </div>
+            </section>
+
+            {/* ── PublishAssembler ─────────────────────────── */}
+            {selectedImageKeys.size > 0 && (
+              <section className="rounded-lg border border-[#00d4ff]/30 bg-[#00d4ff]/5 p-6">
+                <div className="mb-4 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="h-2 w-2 animate-pulse rounded-full bg-[#00d4ff]" />
+                    <h3 className="text-sm font-bold">
+                      组装预览
+                      <span className="ml-2 text-xs font-normal text-gray-400">
+                        {selectedImageKeys.size} 张图片 · 发布到 {selected.materials.currentChannel}
+                      </span>
+                    </h3>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedImageKeys(new Set())}
+                      className="rounded-lg border border-[#2a2a2a] px-3 py-1.5 text-xs text-gray-400 transition-colors hover:text-white"
+                    >
+                      重置
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handlePublishAll}
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-[#00d4ff] px-4 py-1.5 text-sm font-semibold text-black transition-colors hover:bg-[#00b8e6]"
+                    >
+                      <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 19.5l15-15m0 0H8.25m11.25 0v11.25" />
+                      </svg>
+                      批量发布 ({selectedImageKeys.size})
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex gap-4 overflow-x-auto pb-2">
+                  {[...selectedImageKeys].map((key) => {
+                    const isVideo = key.startsWith("vid-");
+                    const thumb = isVideo
+                      ? VIDEO_THUMBS.find((v) => v.key === key)
+                      : null;
+                    const [typeStr, idxStr] = key.split("-");
+                    const mockImg = !isVideo
+                      ? MOCK_IMAGES[typeStr as ImageTypeId]?.[Number(idxStr)]
+                      : null;
+                    const realUrl = !isVideo ? generatedImageUrls[key] : null;
+                    const bg = thumb?.bg ?? mockImg?.bg ?? "#242424";
+                    const copyIndex = perImageCopy[key] ?? selectedPost;
+                    const post = selected.materials.posts[copyIndex];
+
+                    return (
+                      <div key={key} className="w-44 shrink-0 overflow-hidden rounded-xl border border-[#2a2a2a] bg-[#1f1f1f]">
+                        {/* Image preview */}
+                        <div
+                          className={`relative flex w-full items-center justify-center ${isVideo ? "aspect-[9/16]" : "aspect-square"}`}
+                          style={realUrl ? {} : { background: bg }}
+                        >
+                          {realUrl ? (
+                            <img src={realUrl} alt={key} className="h-full w-full object-cover" />
+                          ) : isVideo ? (
+                          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-black/40">
+                              <svg className="h-5 w-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M8 5v14l11-7z" />
+                              </svg>
+                            </div>
+                          ) : null}
+                          <div className="absolute bottom-1.5 left-1.5">
+                            <span className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${isVideo ? "bg-purple-500/80 text-white" : "bg-black/60 text-white"}`}>
+                              {isVideo ? (thumb?.label ?? key) : key}
+                            </span>
+                          </div>
+                        </div>
+                        {/* Copy selector */}
+                        <div className="p-2">
+                          <p className="mb-1 text-[10px] text-gray-500">配对文案</p>
+                          <select
+                            value={copyIndex}
+                            onChange={(e) =>
+                              setPerImageCopy((prev) => ({ ...prev, [key]: Number(e.target.value) }))
+                            }
+                            className="w-full rounded-md border border-[#2a2a2a] bg-[#1a1a1a] px-2 py-1 text-xs text-white focus:border-[#00d4ff] focus:outline-none"
+                          >
+                            {selected.materials.posts.map((p, i) => (
+                              <option key={i} value={i}>{p.type}</option>
+                            ))}
+                          </select>
+                          {post && (
+                            <p className="mt-1.5 line-clamp-2 text-[10px] leading-relaxed text-gray-500">
+                              {post.content}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+            )}
           </div>
         ) : null}
 
@@ -857,6 +1159,77 @@ export function WorkspaceView({ session, fallback }: WorkspaceViewProps) {
           </div>
         ) : null}
       </main>
+
+      {/* ── PublishModal ─────────────────────────── */}
+      {currentPublish && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-lg border border-[#2a2a2a] bg-[#1f1f1f] p-8">
+            {!publishDone ? (
+              <>
+                <h3 className="text-lg font-bold">
+                  正在发布到{" "}
+                  <span className="text-[#00d4ff]">{selected.materials.currentChannel}</span>
+                </h3>
+                <div className="mt-6 space-y-4">
+                  {PUBLISH_STEPS.map((step, i) => (
+                    <div key={step.label} className="flex items-center gap-3">
+                      <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 transition-all duration-300 ${
+                        i < publishStep
+                          ? "border-green-500 bg-green-500/20"
+                          : i === publishStep
+                          ? "border-[#00d4ff] bg-[#00d4ff]/20"
+                          : "border-[#2a2a2a]"
+                      }`}>
+                        {i < publishStep ? (
+                          <svg className="h-4 w-4 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                          </svg>
+                        ) : i === publishStep ? (
+                          <div className="h-3 w-3 animate-spin rounded-full border-2 border-[#00d4ff] border-t-transparent" />
+                        ) : (
+                          <div className="h-2 w-2 rounded-full bg-[#2a2a2a]" />
+                        )}
+                      </div>
+                      <span className={`text-sm ${i <= publishStep ? "text-white" : "text-gray-600"}`}>
+                        {step.label}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <div className="flex flex-col items-center py-4">
+                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-green-500/20">
+                  <svg className="h-8 w-8 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+                <h3 className="mt-4 text-xl font-bold">发布成功！</h3>
+                <p className="mt-2 text-sm text-gray-400">
+                  内容已成功发布到 {selected.materials.currentChannel}
+                  {publishQueue.length > 0 && `，还有 ${publishQueue.length} 条待发布`}
+                </p>
+                <div className="mt-6 flex gap-3">
+                  <button
+                    type="button"
+                    onClick={handleModalClose}
+                    className="rounded-lg bg-[#00d4ff] px-6 py-2.5 text-sm font-bold text-black transition-colors hover:bg-[#00b8e6]"
+                  >
+                    {publishQueue.length > 0 ? `继续发布下一条` : "完成"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setCurrentPublish(null); setPublishQueue([]); }}
+                    className="rounded-lg border border-[#2a2a2a] px-6 py-2.5 text-sm text-gray-400 transition-colors hover:border-[#00d4ff]/50 hover:text-white"
+                  >
+                    关闭
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
